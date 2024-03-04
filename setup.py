@@ -14,14 +14,14 @@ with open(path.join(HERE, 'README.md'), encoding='utf-8') as f:
 
 # This call to setup() does all the work
 setup(
-    name="medium-multiply",
-    version="0.1.0",
-    description="Demo library",
+    name="instarecsys",
+    version="0.1.2",
+    description="recommend system for instacart dataset",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://medium-multiply.readthedocs.io/",
-    author="Joffrey Bienvenu",
-    author_email="example@email.com",
+    url="https://instarecsys.readthedocs.io/",
+    author="Alexander Surkov",
+    author_email="sanchelo2006@yandex.ru",
     license="MIT",
     classifiers=[
         "Intended Audience :: Developers",
@@ -34,7 +34,7 @@ setup(
         "Programming Language :: Python :: 3.9",
         "Operating System :: OS Independent"
     ],
-    packages=["medium_multiply"],
+    packages=["instarecsys"],
     include_package_data=True,
-    install_requires=["numpy"]
+    install_requires=["numpy", "pandas", "tqdm", "pyarrow"]
 )

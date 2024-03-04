@@ -15,6 +15,8 @@ import time
 import pyarrow
 # for work with files paths
 import os
+# for use internal data files
+import importlib.resources
 
 
 # function for reduce mem usage by pandas dataset
@@ -55,147 +57,161 @@ def reduce_mem_usage(df, verbose=True):
 
     return df
 
+class Insta:
 
-# function for load dataset
+    def __init__(self):
+        pass
 
-def insta_load_data(file_path):
-    """
-    loading dataset from file csv or pkl
-    return pandas dataset.
-    showing minimum info about dataset also reduce mem usage
-    """
-    if not os.path.isfile(file_path):
-        print('file is not exist!')
+    # function for load dataset
 
-        return
+    def load_data(self, file_path: object) -> object:
+        """
+        loading dataset from file csv or pkl
+        return pandas dataset.
+        showing minimum info about dataset also reduce mem usage
+        """
+        if not os.path.isfile(file_path):
+            print('file is not exist!')
 
-    print('loading file...')
+            return
 
-    if file_path[-3:] == 'csv':
+        print('loading file...')
 
-        df = pd.read_csv(file_path, engine='pyarrow')
+        if file_path[-3:] == 'csv':
 
-    elif file_path[-3:] == 'pkl':
+            df = pd.read_csv(file_path, engine='pyarrow')
 
-        df = pd._read_pickle(file)
+        elif file_path[-3:] == 'pkl':
 
-    else:
+            df = pd.read_pickle(file_path)
 
-        print('extention of this file is not support by this func!')
+        else:
 
-        return
+            print('extention of this file is not support by this func!')
 
-    print('optimize file size...')
-    df = reduce_mem_usage(df)
+            return
 
-    print('rows of loaded dataset:', df.shape[0])
-    print('columns of loaded dataset:', df.shape[1])
-    print('----------------------------------------')
-    print('quantity of NaN:')
-    print(df.isna().sum())
+        print('optimize file size...')
+        df = reduce_mem_usage(df)
 
-    return df
+        print('rows of loaded dataset:', df.shape[0])
+        print('columns of loaded dataset:', df.shape[1])
+        print('----------------------------------------')
+        print('quantity of NaN:')
+        print(df.isna().sum())
 
+        return df
 
-# main function, building features
+    def load_sample(self):
 
-def insta_feature(df, columns=['user_id', 'product_id', 'add_to_cart_order']):
-    """
-    in argument 'columns':
-    first - user_id
-    second - product_id
-    third - add_to_cart_order
-    """
-    # take neccesary columns from loaded dataset
-    df = df[columns]
-    # make dataset with only user_id and product_id
-    df_final = df[[columns[0], columns[1]]]
-
-    # make second dataset with first features - quantity of purchases each product by each user
-    print('build first features...')
-    start_time = time.time()
-    df_final = df_final.groupby([columns[0], columns[1]]).size().reset_index(name='counts')
-    print('time consum:', time.time() - start_time)
-
-    # sort both datasets by users and products
-    print('sorting datasets...')
-    df = df.sort_values(by=[columns[0], columns[1]], ascending=[True, True])
-    df_final = df_final.sort_values(by=[columns[0], columns[1]], ascending=[True, True])
-
-    # build second feature
-    print('build second feature...')
-
-    # add empty column for second feature
-    df_final['most_freq'] = ""
-
-    count = 0
-
-    # in this cycle we build second feature and also check time consum with tqdm
-    for user in tqdm(df['user_id'].unique()):
-
-        ds_temp = df[df['user_id'] == user]
-
-        for item in ds_temp['product_id'].unique():
-            most_freq = ds_temp[ds_temp['product_id'] == item]['add_to_cart_order'].value_counts().idxmax()
-
-            df_final.iloc[count, 3] = most_freq
-
-            count += 1
-
-    return df_final
+        with importlib.resources.path('instarecsys', 'Data') as df_path:
+            final_path = df_path / 'df_sample.csv'
+            df_sample = pd.read_csv(final_path)
+        return df_sample
 
 
-# function for recommendation
 
-def insta_recommend(df, users=[], k=10, all_users=True):
-    """
-    this function give recommendation
-    can be three cases:
-     - for one user (users = [user],  all_users = False)
-       in this case return dict where key is user and value is recommendations
-     - set of users (give a list of users users = [user_1, user_2, ...]
-       in this case return dataset with set of users
-     - all users (all_users = True)
-       in this case return csv file with recommendation for all users in loaded dataset
-    k - quantity of recommended products
-    """
-    # sort dataset by user_id, count, most_freq
-    df = df.sort_values(by=['user_id', 'counts', 'most_freq'], ascending=[True, False, True])
+    # main function, building features
 
-    # case for all users
-    if all_users == True:
+    def feature(self, df, columns=['user_id', 'product_id', 'add_to_cart_order']):
+        """
+        in argument 'columns':
+        first - user_id
+        second - product_id
+        third - add_to_cart_order
+        in your dataset can be other names - but with same purpose
+        """
+        # take neccesary columns from loaded dataset
+        df = df[columns]
 
-        # make a list of all users
-        array_users = df['user_id'].unique()
+        # make dataset with only user_id and product_id
+        df_final = df[[columns[0], columns[1]]]
 
-        # create top_k products
-        df_2 = df.groupby('user_id').head(k)
-        top_k = df_2.groupby('user_id')['product_id'].apply(lambda x: x.to_numpy()).values
+        # make second dataset with first features - quantity of purchases each product by each user
+        print('build first features...')
+        start_time = time.time()
+        df_final = df_final.groupby([columns[0], columns[1]]).size().reset_index(name='counts')
+        print('time consum:', time.time() - start_time)
 
-        # create zip for loading to the file
-        rows = zip(array_users, top_k)
+        # sort both datasets by users and products
+        print('sorting datasets...')
+        df = df.sort_values(by=[columns[0], columns[1]], ascending=[True, True])
+        df_final = df_final.sort_values(by=[columns[0], columns[1]], ascending=[True, True])
 
-        # write zip to the file
-        with open('submission.csv', "w") as f:
-            writer = csv.writer(f)
-            writer.writerow(['user_id', 'product_id'])
-            for row in rows:
-                writer.writerow(row)
+        # build second feature
+        print('build second feature...')
 
-    # case for one user
-    if len(users) == 1:
-        dict_user[users[0]] = df[df['user_id'] == users[0]]['product_id'].head(k).values
+        # add empty column for second feature
+        df_final['most_freq'] = ""
 
-        return dict_user
+        count = 0
 
-    # case for list of users
-    if len(users) > 1:
+        # in this cycle we build second feature and also check time consum with tqdm
+        for user in tqdm(df['user_id'].unique()):
 
-        df_users = pd.DataFrame(columns=['user_id', 'product_id'])
+            ds_temp = df[df['user_id'] == user]
 
-        for user in users:
-            df_temp = df[df['user_id'] == user][['user_id', 'product_id']].head(k)
+            for item in ds_temp['product_id'].unique():
+                most_freq = ds_temp[ds_temp['product_id'] == item]['add_to_cart_order'].value_counts().idxmax()
 
-            df_users = pd.concat([df_users, df_temp])
+                df_final.iloc[count, 3] = most_freq
 
-        return df_users
+                count += 1
+
+        return df_final
+
+
+    # function for recommendation
+
+    def recommend(self, df, users=[], k=10, all_users=True):
+        """
+        this function give recommendation
+        can be three cases:
+         - for one user (users = [user],  all_users = False)
+           in this case return dict where key is user and value is recommendations
+         - set of users (give a list of users users = [user_1, user_2, ...]
+           in this case return dataset with set of users
+         - all users (all_users = True)
+           in this case return csv file with recommendation for all users in loaded dataset
+        k - quantity of recommended products
+        """
+        # sort dataset by user_id, count, most_freq
+        df = df.sort_values(by=['user_id', 'counts', 'most_freq'], ascending=[True, False, True])
+
+        # case for all users
+        if all_users == True:
+
+            # make a list of all users
+            array_users = df['user_id'].unique()
+
+            # create top_k products
+            df_2 = df.groupby('user_id').head(k)
+            top_k = df_2.groupby('user_id')['product_id'].apply(lambda x: x.to_numpy()).values
+
+            # create zip for loading to the file
+            rows = zip(array_users, top_k)
+
+            # write zip to the file
+            with open('submission.csv', "w") as f:
+                writer = csv.writer(f)
+                writer.writerow(['user_id', 'product_id'])
+                for row in rows:
+                    writer.writerow(row)
+
+        # case for one user
+        if len(users) == 1:
+            dict_user[users[0]] = df[df['user_id'] == users[0]]['product_id'].head(k).values
+
+            return dict_user
+
+        # case for list of users
+        if len(users) > 1:
+
+            df_users = pd.DataFrame(columns=['user_id', 'product_id'])
+
+            for user in users:
+                df_temp = df[df['user_id'] == user][['user_id', 'product_id']].head(k)
+
+                df_users = pd.concat([df_users, df_temp])
+
+            return df_users

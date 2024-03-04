@@ -1,0 +1,10 @@
+MANIFEST.in
+README.md
+setup.py
+instarecsys/__init__.py
+instarecsys/instarecsys.py
+instarecsys.egg-info/PKG-INFO
+instarecsys.egg-info/SOURCES.txt
+instarecsys.egg-info/dependency_links.txt
+instarecsys.egg-info/requires.txt
+instarecsys.egg-info/top_level.txt
